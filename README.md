@@ -1,4 +1,4 @@
-# dame-jidlo-statistika
+# Dáme jídlo statistika
 Jednoduchá statistika útraty na Dáme jídlo ve formátu:
 
 Na Dáme jídlo jsi utratil již xxxx Kč ve xxx objednávkách.<br>
