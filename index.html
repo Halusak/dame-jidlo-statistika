@@ -1,0 +1,103 @@
+<html>
+  <head>
+    <title>Kolik jsem utratil na Dáme jídlo?</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+  </head>
+  <body>
+    <div class="w3-container w3-teal w3-margin-bottom">
+      <h3>Statistiky Dámejídlo.cz</h3>
+    </div>
+    <div class="w3-container">
+      Na <a href="https://www.damejidlo.cz/account">Dáme jídlo</a> stáhni JSON s objednávkami.<br>
+      Zde ho načti: <input id="input" type="file" accept=".json">
+        
+      <h3 id="result"></h3>
+    </div>
+
+    <div class="w3-container w3-red w3-margin-top">
+      <h5>Script probíhá jen v rámci prohlížeče a nic se nikam neukládá.</h5>
+    </div>
+      
+    <script>
+      const input = document.querySelector("#input");
+
+      // převeď soubor na text
+      function fileToText(file, callback) {
+        const reader = new FileReader();
+        reader.readAsText(file);
+        reader.onload = () => {
+          callback(reader.result);
+        };
+      }
+
+      // formát datumu
+      function dateFormat(date) {
+        var formated = date.getDate()  + "." + (date.getMonth()+1) + "." + date.getFullYear();
+
+        return formated;
+      }
+
+      // formát času
+      function timeFormat(date) {
+        var formated = date.getHours() + ":" + date.getMinutes();
+
+        return formated;
+      }
+
+      // rozsekání časového údaje
+      function jsonDate(obj, i) {
+        var date = new Date(obj.orders[i].created_at.slice(0, 4),
+                            obj.orders[i].created_at.slice(5, 7),
+                            obj.orders[i].created_at.slice(8, 10),
+                            obj.orders[i].created_at.slice(11, 13),
+                            obj.orders[i].created_at.slice(14, 16),
+                            obj.orders[i].created_at.slice(17, 19), 0);
+        return date;
+      }
+
+      // formát cenovky
+      function formatNumber(number) {
+        number = number.toFixed(0).replace(".", ",");
+        return number;
+      }
+
+      // event
+      input.addEventListener("change", () => {
+        const file = input.files.item(0);
+
+        // převést soubor na test
+        fileToText(file, (text) => {
+          // parse JSONu z textu
+          var obj = JSON.parse(text);
+
+          // pomocný zbytečnosti
+          var total = 0;
+          var counter = 0;
+
+          // aktuální datum
+          var today = new Date();
+
+          // výpočet rozdílu datumů
+          var delta = Math.abs(jsonDate(obj, 0) - today) / 1000;
+          var days = Math.floor(delta / 86400);
+          delta -= days * 86400;
+          var years = days / 365;
+
+          // čtení objednávek
+          for (var i = 0; i < obj.orders.length; i++) {
+            total = total + obj.orders[i].cart.total;
+            counter = counter + 1;
+          }
+
+          // vepsání do divu
+          document.getElementById("result").innerHTML =
+            "Na Dáme jídlo jsi utratil již " + formatNumber(total) + " Kč ve " + counter + " objednávkách.<br>" +
+            "Průměrná cena tvé objednávky je " + formatNumber(total/counter) + " Kč.<br>" + 
+            "První objednávku jsi vytvořil " + dateFormat(jsonDate(obj, 0)) + " v " + timeFormat(jsonDate(obj, 0)) + ".<br>" +
+            "Takže přes dovoz ročně prožereš " + formatNumber(total/years) + " Kč, tedy " + formatNumber(total/years/12) + " Kč měsíčně";
+        });
+      });
+    </script>
+  </body>
+</html>
