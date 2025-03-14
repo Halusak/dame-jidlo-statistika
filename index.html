@@ -1,18 +1,20 @@
 <html>
   <head>
-    <title>Kolik jsem utratil na Dáme jídlo?</title>
+    <meta charset="UTF-8">
+    <title>Kolik jsem utratil na Foodoře?</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
   </head>
   <body>
     <div class="w3-container w3-teal w3-margin-bottom">
-      <h3>Statistiky Dámejídlo.cz</h3>
+      <h3>Statistiky Foodora.cz</h3>
     </div>
     <div class="w3-container">
-      Na <a href="https://www.damejidlo.cz/account">Dáme jídlo</a> stáhni JSON s objednávkami.<br>
+      Na <a href="https://www.foodora.cz/account">Foodoře</a> stáhni JSON s objednávkami.<br>
       Zde ho načti: <input id="input" type="file" accept=".json">
         
       <h3 id="result"></h3>
+      <div id="yearlyStats"></div>
     </div>
 
     <div class="w3-container w3-red w3-margin-top">
@@ -22,7 +24,7 @@
     <script>
       const input = document.querySelector("#input");
 
-      // převeď soubor na text
+      // Převeď soubor na text
       function fileToText(file, callback) {
         const reader = new FileReader();
         reader.readAsText(file);
@@ -31,21 +33,21 @@
         };
       }
 
-      // formát datumu
+      // Formát datumu
       function dateFormat(date) {
         var formated = date.getDate()  + "." + (date.getMonth()+1) + "." + date.getFullYear();
 
         return formated;
       }
 
-      // formát času
+      // Formát času
       function timeFormat(date) {
         var formated = date.getHours() + ":" + date.getMinutes();
 
         return formated;
       }
 
-      // rozsekání časového údaje
+      // Rozsekání časového údaje
       function jsonDate(obj, i) {
         var date = new Date(obj.orders[i].created_at.slice(0, 4),
                             obj.orders[i].created_at.slice(5, 7),
@@ -56,48 +58,173 @@
         return date;
       }
 
-      // formát cenovky
+      // Formát cenovky
       function formatNumber(number) {
-        number = number.toFixed(0).replace(".", ",");
+        number = number.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
         return number;
+      }
+
+      // Funkce pro vytvoření statistik podle let
+      function getYearlyStats(orders) {
+        const yearlyData = {};
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        
+        // Projít všechny objednávky a rozdělit je podle roku
+        orders.forEach(order => {
+          const date = new Date(order.created_at);
+          const year = date.getFullYear();
+          
+          if (!yearlyData[year]) {
+            yearlyData[year] = {
+              total: 0,
+              count: 0,
+              firstOrder: new Date(order.created_at)
+            };
+          } else {
+            // Aktualizace prvního data objednávky v roce, pokud je tato dřívější
+            if (date < yearlyData[year].firstOrder) {
+              yearlyData[year].firstOrder = new Date(order.created_at);
+            }
+          }
+          
+          yearlyData[year].total += order.cart.total;
+          yearlyData[year].count += 1;
+        });
+        
+        // Vypočítat průměry a další statistiky
+        Object.keys(yearlyData).forEach(year => {
+          const data = yearlyData[year];
+          data.average = data.total / data.count;
+          
+          if (parseInt(year) === currentYear) {
+            // Pro aktuální rok počítáme průměr jen z uplynulých dní
+            const startDate = new Date(currentYear, 0, 1); // 1. leden aktuálního roku
+            const daysPassed = Math.floor((today - startDate) / (1000 * 60 * 60 * 24)) || 1;
+            data.monthly = (data.total / daysPassed) * 30; // Měsíční průměr (přibližně 30 dní)
+          } else {
+            // Pro předchozí roky počítáme z celého roku
+            data.monthly = data.total / 12;
+          }
+        });
+        
+        return yearlyData;
       }
 
       // event
       input.addEventListener("change", () => {
         const file = input.files.item(0);
 
-        // převést soubor na test
+        // Převést soubor na test
         fileToText(file, (text) => {
-          // parse JSONu z textu
+          // Parse JSONu z textu
           var obj = JSON.parse(text);
 
-          // pomocný zbytečnosti
+          // Pomocný zbytečnosti
           var total = 0;
           var counter = 0;
 
-          // aktuální datum
+          // Aktuální datum
           var today = new Date();
+          
+          // První datum objednávky
+          var firstOrderDate = jsonDate(obj, 0);
+          
+          // Výpočet přesného počtu měsíců od první objednávky
+          var monthsDiff = (today.getFullYear() - firstOrderDate.getFullYear()) * 12;
+          monthsDiff += today.getMonth() - firstOrderDate.getMonth();
+          if (today.getDate() < firstOrderDate.getDate()) {
+            monthsDiff--; // Pokud jsme ještě nedosáhli stejného dne v měsíci, odečítáme jeden měsíc
+          }
+          
+          // Alespoň jeden měsíc, aby nedošlo k dělení nulou
+          var totalMonths = Math.max(1, monthsDiff);
 
-          // výpočet rozdílu datumů
-          var delta = Math.abs(jsonDate(obj, 0) - today) / 1000;
+          // Výpočet rozdílu datumů (pro zobrazení v letech)
+          var delta = Math.abs(firstOrderDate - today) / 1000;
           var days = Math.floor(delta / 86400);
           delta -= days * 86400;
           var years = days / 365;
 
-          // čtení objednávek
+          // Čtení objednávek
           for (var i = 0; i < obj.orders.length; i++) {
             total = total + obj.orders[i].cart.total;
             counter = counter + 1;
           }
 
-          // vepsání do divu
+          // Vepsání do divu
           document.getElementById("result").innerHTML =
-            "Na Dáme jídlo jsi utratil již " + formatNumber(total) + " Kč ve " + counter + " objednávkách.<br>" +
+            "Na Foodoře jsi utratil již " + formatNumber(total) + " Kč ve " + counter + " objednávkách.<br>" +
             "Průměrná cena tvé objednávky je " + formatNumber(total/counter) + " Kč.<br>" + 
-            "První objednávku jsi vytvořil " + dateFormat(jsonDate(obj, 0)) + " v " + timeFormat(jsonDate(obj, 0)) + ".<br>" +
-            "Takže přes dovoz ročně prožereš " + formatNumber(total/years) + " Kč, tedy " + formatNumber(total/years/12) + " Kč měsíčně";
+            "První objednávku jsi vytvořil " + dateFormat(firstOrderDate) + " v " + timeFormat(firstOrderDate) + ".<br>" +
+            "Takže přes dovoz ročně prožereš průměrně " + formatNumber((total/totalMonths)*12) + " Kč, tedy " + formatNumber(total/totalMonths) + " Kč měsíčně";
+          
+          // Zpracování a zobrazení statistik podle let
+          const yearlyStats = getYearlyStats(obj.orders);
+          displayYearlyStats(yearlyStats, totalMonths);
         });
       });
+
+      // Zobrazení statistik
+      function displayYearlyStats(yearlyData, totalMonths) {
+        const container = document.getElementById("yearlyStats");
+        
+        // Vytvoření tabulky
+        let html = '<h3>Statistiky podle jednotlivých let</h3>';
+        html += '<table class="w3-table-all w3-margin-bottom">';
+        html += '<tr class="w3-teal">';
+        html += '<th>Rok</th>';
+        html += '<th>Celková částka</th>';
+        html += '<th>Počet objednávek</th>';
+        html += '<th>Průměrná cena</th>';
+        html += '<th>Měsíčně</th>';
+        html += '</tr>';
+        
+        // Seřazení roků od nejnovějšího
+        const years = Object.keys(yearlyData).sort((a, b) => b - a);
+        const currentYear = new Date().getFullYear();
+        
+        // Přidání řádků pro každý rok
+        years.forEach(year => {
+          const data = yearlyData[year];
+          html += '<tr>';
+          html += `<td>${year}</td>`;
+          html += `<td>${formatNumber(data.total)} Kč</td>`;
+          html += `<td>${data.count}</td>`;
+          html += `<td>${formatNumber(data.average)} Kč</td>`;
+          html += `<td>${formatNumber(data.monthly)} Kč${parseInt(year) === currentYear ? '*' : ''}</td>`;
+          html += '</tr>';
+        });
+        
+        // Přidání řádku s celkovými statistikami
+        let totalAmount = 0;
+        let totalCount = 0;
+        
+        Object.values(yearlyData).forEach(data => {
+          totalAmount += data.total;
+          totalCount += data.count;
+        });
+        
+        const totalAverage = totalCount > 0 ? totalAmount / totalCount : 0;
+        const totalMonthly = totalAmount / totalMonths; // Používáme skutečný počet měsíců
+        
+        html += '<tr class="w3-light-grey w3-text-dark-grey" style="font-weight: bold;">';
+        html += '<td>Celkem</td>';
+        html += `<td>${formatNumber(totalAmount)} Kč</td>`;
+        html += `<td>${totalCount}</td>`;
+        html += `<td>${formatNumber(totalAverage)} Kč</td>`;
+        html += `<td>${formatNumber(totalMonthly)} Kč</td>`;
+        html += '</tr>';
+        
+        html += '</table>';
+        
+        // Přidat poznámku o výpočtu pro aktuální rok
+        if (years.includes(currentYear.toString())) {
+          html += '<p><small>* Pro aktuální rok je měsíční průměr počítán z počtu dní od začátku roku.</small></p>';
+        }
+        
+        container.innerHTML = html;
+      }
     </script>
   </body>
 </html>
