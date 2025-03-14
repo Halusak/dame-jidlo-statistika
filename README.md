@@ -1,12 +1,8 @@
 # Foodora statistika
-Jednoduchá statistika útraty na Foodoře ve formátu:
-
-Na Foodoře jsi utratil již xxxx Kč ve xxx objednávkách.<br>
-Průměrná cena tvé objednávky je xxx Kč.<br>
-První objednávku jsi vytvořil DD.MM.RRRR v hh:mm.<br>
-Takže přes dovoz ročně prožereš xxxxxx Kč, tedy xxxx Kč měsíčně.<br><br>
-Statistiky podle jednotlivých let<br>
-...<br>
-...<br><br>
+Statistika útrat na Foodoře.<br>
+<br>
+Obecná statistika<br>
+Detailní tabulka podle let<br>
+Detailní tabulka podle podniků<br><br>
 
 Stačí načíst JSON, který stáhnete na https://www.foodora.cz/account
