@@ -111,6 +111,36 @@
         return yearlyData;
       }
 
+      // Upravená funkce pro vytvoření statistik podle restaurací
+      function getRestaurantStats(orders) {
+        const restaurantData = {};
+        
+        orders.forEach(order => {
+          if (!order.restaurant_name) return;
+          
+          const name = order.restaurant_name;
+          if (!restaurantData[name]) {
+            restaurantData[name] = {
+              total: 0,
+              count: 0,
+              totalItems: 0
+            };
+          }
+          
+          restaurantData[name].total += order.cart.total;
+          restaurantData[name].count += 1;
+          
+          // Zpracování položek
+          if (order.cart.items) {
+            order.cart.items.forEach(item => {
+              restaurantData[name].totalItems += item.quantity;
+            });
+          }
+        });
+        
+        return restaurantData;
+      }
+
       // event
       input.addEventListener("change", () => {
         const file = input.files.item(0);
@@ -154,19 +184,19 @@
 
           // Vepsání do divu
           document.getElementById("result").innerHTML =
-            "Na Foodoře jsi utratil již " + formatNumber(total) + " Kč ve " + counter + " objednávkách.<br>" +
+            "Na Foodoře jsi utratil již " + formatNumber(total) + " Kč v " + counter + " objednávkách.<br>" +
             "Průměrná cena tvé objednávky je " + formatNumber(total/counter) + " Kč.<br>" + 
             "První objednávku jsi vytvořil " + dateFormat(firstOrderDate) + " v " + timeFormat(firstOrderDate) + ".<br>" +
             "Takže přes dovoz ročně prožereš průměrně " + formatNumber((total/totalMonths)*12) + " Kč, tedy " + formatNumber(total/totalMonths) + " Kč měsíčně";
           
           // Zpracování a zobrazení statistik podle let
           const yearlyStats = getYearlyStats(obj.orders);
-          displayYearlyStats(yearlyStats, totalMonths);
+          displayYearlyStats(yearlyStats, totalMonths, obj.orders); // Přidáno obj.orders
         });
       });
 
-      // Zobrazení statistik
-      function displayYearlyStats(yearlyData, totalMonths) {
+      // Upravená funkce displayYearlyStats
+      function displayYearlyStats(yearlyData, totalMonths, orders) {
         const container = document.getElementById("yearlyStats");
         
         // Vytvoření tabulky
@@ -222,8 +252,114 @@
         if (years.includes(currentYear.toString())) {
           html += '<p><small>* Pro aktuální rok je měsíční průměr počítán z počtu dní od začátku roku.</small></p>';
         }
+
+        // Přidání statistik restaurací
+        const restaurantStats = getRestaurantStats(orders);
         
+        html += '<h3>Statistiky podle podniků</h3>';
+        html += '<table class="w3-table-all w3-margin-bottom">';
+        html += '<tr class="w3-teal">';
+        html += `<th style="cursor:pointer" onclick="updateSort('name')">Restaurace ${currentSort.field === 'name' ? (currentSort.asc ? '▲' : '▼') : ''}</th>`;
+        html += `<th style="cursor:pointer" onclick="updateSort('count')">Počet objednávek ${currentSort.field === 'count' ? (currentSort.asc ? '▲' : '▼') : ''}</th>`;
+        html += `<th style="cursor:pointer" onclick="updateSort('avgItems')">Průměr položek ${currentSort.field === 'avgItems' ? (currentSort.asc ? '▲' : '▼') : ''}</th>`;
+        html += `<th style="cursor:pointer" onclick="updateSort('avgItemPrice')">Průměr cena/položka ${currentSort.field === 'avgItemPrice' ? (currentSort.asc ? '▲' : '▼') : ''}</th>`;
+        html += `<th style="cursor:pointer" onclick="updateSort('average')">Průměrná cena ${currentSort.field === 'average' ? (currentSort.asc ? '▲' : '▼') : ''}</th>`;
+        html += `<th style="cursor:pointer" onclick="updateSort('total')">Celková částka ${currentSort.field === 'total' ? (currentSort.asc ? '▲' : '▼') : ''}</th>`;
+        html += '</tr>';
+        
+        // Seřazení restaurací podle aktuálního řazení
+        const restaurants = sortRestaurants(
+          Object.entries(restaurantStats),
+          currentSort.field,
+          currentSort.asc
+        );
+        
+        restaurants.forEach(([name, data]) => {
+          const average = data.total / data.count;
+          const avgItems = data.totalItems / data.count;
+          const avgItemPrice = data.total / data.totalItems;
+          
+          html += '<tr>';
+          html += `<td>${name}</td>`;
+          html += `<td>${data.count}</td>`;
+          html += `<td>${avgItems.toFixed(2)}</td>`;
+          html += `<td>${avgItemPrice.toFixed(2)} Kč</td>`;
+          html += `<td>${formatNumber(average)} Kč</td>`;
+          html += `<td>${formatNumber(data.total)} Kč</td>`;
+          html += '</tr>';
+        });
+        
+        html += '</table>';
         container.innerHTML = html;
+      }
+
+      let currentSort = { field: 'total', asc: false }; // Výchozí řazení podle celkové částky sestupně
+
+      function sortRestaurants(restaurants, field, asc) {
+        return restaurants.sort(([nameA, dataA], [nameB, dataB]) => {
+          let a, b;
+          
+          switch(field) {
+            case 'name':
+              a = nameA;
+              b = nameB;
+              break;
+            case 'count':
+              a = dataA.count;
+              b = dataB.count;
+              break;
+            case 'total':
+              a = dataA.total;
+              b = dataB.total;
+              break;
+            case 'average':
+              a = dataA.total / dataA.count;
+              b = dataB.total / dataB.count;
+              break;
+            case 'avgItems':
+              a = dataA.totalItems / dataA.count;
+              b = dataB.totalItems / dataB.count;
+              break;
+            case 'avgItemPrice':
+              a = dataA.total / dataA.totalItems;
+              b = dataB.total / dataB.totalItems;
+              break;
+          }
+          
+          if (a < b) return asc ? -1 : 1;
+          if (a > b) return asc ? 1 : -1;
+          return 0;
+        });
+      }
+
+      function updateSort(field) {
+        if (currentSort.field === field) {
+          currentSort.asc = !currentSort.asc; // Změna směru řazení
+        } else {
+          currentSort.field = field;
+          currentSort.asc = true; // Nové pole začíná vzestupně
+        }
+        
+        // Znovu zobrazit statistiky s novým řazením
+        const input = document.querySelector("#input");
+        const file = input.files.item(0);
+        if (file) {
+          fileToText(file, (text) => {
+            const obj = JSON.parse(text);
+            const yearlyStats = getYearlyStats(obj.orders);
+            const firstOrderDate = jsonDate(obj, 0);
+            const today = new Date();
+            
+            let monthsDiff = (today.getFullYear() - firstOrderDate.getFullYear()) * 12;
+            monthsDiff += today.getMonth() - firstOrderDate.getMonth();
+            if (today.getDate() < firstOrderDate.getDate()) {
+              monthsDiff--;
+            }
+            const totalMonths = Math.max(1, monthsDiff);
+            
+            displayYearlyStats(yearlyStats, totalMonths, obj.orders);
+          });
+        }
       }
     </script>
   </body>
